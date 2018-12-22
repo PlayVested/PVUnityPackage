@@ -9,6 +9,7 @@ using UnityEngine;
 
 public delegate void RecordUser(string userID);
 public delegate void RecordEarning(bool success);
+public delegate void FailureCleanup();
 
 public class PlayVested : MonoBehaviour {
     // cached identifiers for the game and user
@@ -18,6 +19,7 @@ public class PlayVested : MonoBehaviour {
     // callbacks to notify the game when async operations are done
     private RecordUser recordUserCB = null;
     private RecordEarning recordEarningCB = null;
+    private FailureCleanup failureCB = null;
 
     // pop ups for all the functionality
     public GameObject createUserObj;
@@ -70,8 +72,9 @@ public class PlayVested : MonoBehaviour {
     }
 
     // Call this to show the UI to create a new user and associate it with a charity
-    public void createUser(RecordUser recordUserCB = null) {
+    public void createUser(RecordUser recordUserCB = null, FailureCleanup failureCB = null) {
         this.recordUserCB = recordUserCB;
+        this.failureCB = failureCB;
         if (this.gameID != "") {
             this.createUserObj.SetActive(true);
             return;
@@ -104,18 +107,21 @@ public class PlayVested : MonoBehaviour {
 
             if (www.isNetworkError || www.isHttpError) {
                 Debug.Log("Error: " + www.error);
+                if (this.failureCB != null) {
+                    this.failureCB();
+                }
             } else {
                 Debug.Log("Form upload complete! Response code: " + www.responseCode);
 
-                if (www.isDone && www.downloadHandler.isDone) {
-                    Debug.Log("Body: " + www.downloadHandler.text);
-                    this.userID = www.downloadHandler.text;
+                while (!(www.isDone && www.downloadHandler.isDone)) {
+                    yield return new WaitForSeconds(0.1f);
+                }
 
-                    if (this.recordUserCB != null) {
-                        this.recordUserCB(this.userID);
-                    }
-                } else {
-                    Debug.Log("Not done downloading yet");
+                Debug.Log("Body: " + www.downloadHandler.text);
+                this.userID = www.downloadHandler.text;
+
+                if (this.recordUserCB != null) {
+                    this.recordUserCB(this.userID);
                 }
             }
 
@@ -203,6 +209,9 @@ public class PlayVested : MonoBehaviour {
 
             if (www.isNetworkError || www.isHttpError) {
                 Debug.LogError("Error: " + www.error);
+                if (this.failureCB != null) {
+                    this.failureCB();
+                }
             } else {
                 Debug.Log("Earning report complete! Response code: " + www.responseCode);
 
@@ -215,8 +224,9 @@ public class PlayVested : MonoBehaviour {
         }
     }
 
-    public void reportEarning(float amountEarned, RecordEarning recordEarningCB = null) {
+    public void reportEarning(float amountEarned, RecordEarning recordEarningCB = null, FailureCleanup failureCB = null) {
         this.recordEarningCB = recordEarningCB;
+        this.failureCB = failureCB;
 
         if (this.gameID == "" || this.userID == "") {
             Debug.LogError("Error: game and user have not been initialized");
