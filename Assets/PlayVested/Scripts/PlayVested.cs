@@ -1,11 +1,11 @@
-﻿using UnityEngine.Networking;
+﻿using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.UI;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using UnityEngine;
 
 public delegate void RecordUser(string userID);
 public delegate void RecordEarning(bool success);
@@ -19,15 +19,16 @@ public class QueryTotalParams {
     public int previousWeeks;
     public int previousMonths;
 
-    public QueryTotalParams() {
-        userID = null;
-        gameID = null;
-        previousDays = 0;
-        previousWeeks = 0;
-        previousMonths = 0;
+    public QueryTotalParams(string gameID = null, string userID = null) {
+        this.gameID = gameID;
+        this.userID = userID;
+        this.previousDays = 0;
+        this.previousWeeks = 0;
+        this.previousMonths = 0;
     }
 }
 
+[System.Serializable]
 public class QueryTotalResults {
     public double lifetime;
     public double filtered;
@@ -35,6 +36,11 @@ public class QueryTotalResults {
     public QueryTotalResults() {
         lifetime = 0.0;
         filtered = 0.0;
+    }
+
+    public static QueryTotalResults CreateFromJSON(string jsonString)
+    {
+        return JsonUtility.FromJson<QueryTotalResults>(jsonString);
     }
 }
 
@@ -58,8 +64,8 @@ public class PlayVested : MonoBehaviour {
     public InputField passwordInput;
 
     // Totals displayed on the summary screen
-    public GameObject lifetimeInfo;
-    public GameObject filteredInfo;
+    public Text lifetimeInfo;
+    public Text filteredInfo;
 
     //*
     private string baseURL = "localhost:1979";
@@ -174,19 +180,17 @@ public class PlayVested : MonoBehaviour {
         this.createUserObj.SetActive(false);
     }
 
-    private void updateTotalLabel(GameObject info, double value) {
-        if (info != null) {
-            Text label = info.GetComponent<Text>();
-            if (label != null) {
-                if (value > 0.0) {
-                    info.SetActive(true);
-                    label.text = "$" + value;
-                    return;
-                }
+    private void updateTotalLabel(Text info, double value) {
+        if (info != null && info.transform.parent.gameObject) {
+            if (value > 0.0) {
+                info.transform.parent.gameObject.SetActive(true);
+                info.text = String.Format("{0:C2}", value);
+            } else {
+                info.transform.parent.gameObject.SetActive(false);
             }
+        } else {
+            Debug.LogWarning("Couldn't find text to update, check that reference in prefab is set correctly");
         }
-
-        info.SetActive(false);
     }
 
     private IEnumerator queryTotals(QueryTotalParams queryParams, TotalResults resultsCB) {
@@ -216,7 +220,7 @@ public class PlayVested : MonoBehaviour {
             url += "?";
             for (int i = 0; i < queryString.Count; i++) {
                 if (i != 0) {
-                    url += ',';
+                    url += '&';
                 }
                 url += queryString[i];
             }
@@ -238,9 +242,8 @@ public class PlayVested : MonoBehaviour {
                 }
 
                 Debug.Log("Body: " + www.downloadHandler.text);
-                QueryTotalResults results = new QueryTotalResults();
-                results.lifetime = System.Convert.ToDouble(www.downloadHandler.text);
-                results.filtered = System.Convert.ToDouble(www.downloadHandler.text);
+                string json = www.downloadHandler.text;
+                QueryTotalResults results = QueryTotalResults.CreateFromJSON(json);
 
                 if (resultsCB != null) {
                     resultsCB(results);
@@ -256,11 +259,10 @@ public class PlayVested : MonoBehaviour {
     // Call this to show the UI to view earning details for a game
     public void showSummary(QueryTotalParams queryParams, TotalResults resultsCB = null) {
         if (this.gameID != "") {
+            StartCoroutine(this.queryTotals(queryParams, resultsCB));
             this.summaryObj.SetActive(true);
             return;
         }
-
-        StartCoroutine(this.queryTotals(queryParams, resultsCB));
 
         Debug.LogError("Error: call init with game ID first");
     }

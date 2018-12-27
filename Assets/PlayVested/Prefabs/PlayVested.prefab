@@ -1692,8 +1692,8 @@ MonoBehaviour:
   summaryObj: {fileID: 3925615760039899174}
   usernameInput: {fileID: 935868426}
   passwordInput: {fileID: 1222021975}
-  lifetimeInfo: {fileID: 4244443598747071104}
-  filteredInfo: {fileID: 3954145728925677433}
+  lifetimeInfo: {fileID: 7790358397262229613}
+  filteredInfo: {fileID: 5194232346625259483}
 --- !u!1 &1547104919727394
 GameObject:
   m_ObjectHideFlags: 0
@@ -2695,7 +2695,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &4013894177954644456
 Transform:
   m_ObjectHideFlags: 0
@@ -2726,7 +2726,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &7176933839753999166
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2763,7 +2763,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1722253785222096720
 RectTransform:
   m_ObjectHideFlags: 0
