@@ -7,21 +7,21 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 
-public delegate void RecordUser(string userID);
-public delegate void RecordEarning(bool success);
-public delegate void TotalResults(QueryTotalResults results);
-public delegate void FailureCleanup();
+public delegate void RecordPlayerCB(string playerID);
+public delegate void RecordEarningCB(float amountRecorded);
+public delegate void TotalResultsCB(QueryTotalResults results);
+public delegate void CleanupCB();
 
 public class QueryTotalParams {
-    public string userID;
     public string gameID;
+    public string playerID;
     public int previousDays;
     public int previousWeeks;
     public int previousMonths;
 
-    public QueryTotalParams(string gameID = null, string userID = null) {
+    public QueryTotalParams(string gameID = null, string playerID = null) {
         this.gameID = gameID;
-        this.userID = userID;
+        this.playerID = playerID;
         this.previousDays = 0;
         this.previousWeeks = 0;
         this.previousMonths = 0;
@@ -45,17 +45,16 @@ public class QueryTotalResults {
 }
 
 public class PlayVested : MonoBehaviour {
-    // cached identifiers for the game and user
+    // cached identifiers for the game and player
     private string gameID = "";
-    private string userID = "";
+    private string playerID = "";
 
     // callbacks to notify the game when async operations are done
-    private RecordUser recordUserCB = null;
-    private RecordEarning recordEarningCB = null;
-    private FailureCleanup failureCB = null;
+    private RecordPlayerCB recordPlayerCB = null;
+    private CleanupCB cleanupCB = null;
 
     // pop ups for all the functionality
-    public GameObject createUserObj;
+    public GameObject createPlayerObj;
     public GameObject linkAccountObj;
     public GameObject summaryObj;
 
@@ -67,17 +66,17 @@ public class PlayVested : MonoBehaviour {
     public Text lifetimeInfo;
     public Text filteredInfo;
 
-    //*
+    /*
     private string baseURL = "localhost:1979";
     /*/
     private string baseURL = "https://playvested.herokuapp.com";
-    */
+    //*/
 
     // Use this for initialization
     void Start () {
         // Make sure all the pop-ups are hidden when this is instantiated
-        if (this.createUserObj) {
-            this.createUserObj.SetActive(false);
+        if (this.createPlayerObj) {
+            this.createPlayerObj.SetActive(false);
         }
         if (this.linkAccountObj) {
             this.linkAccountObj.SetActive(false);
@@ -94,12 +93,12 @@ public class PlayVested : MonoBehaviour {
     }
 
     // Call this first
-    // Provide the user ID if one exists
+    // Provide the player ID if one exists
     // It will be stored on creation
-    public void init(string gameID, string userID = "") {
-        Debug.Log("Init called with: " + gameID + " : " + userID);
+    public void init(string gameID, string playerID = "") {
+        Debug.Log("Init called with: " + gameID + " : " + playerID);
         this.gameID = gameID;
-        this.userID = userID;
+        this.playerID = playerID;
     }
 
     // Call this when ending the play session to clean up data the containing object
@@ -108,12 +107,12 @@ public class PlayVested : MonoBehaviour {
         Destroy(this.gameObject);
     }
 
-    // Call this to show the UI to create a new user and associate it with a charity
-    public void createUser(RecordUser recordUserCB = null, FailureCleanup failureCB = null) {
-        this.recordUserCB = recordUserCB;
-        this.failureCB = failureCB;
+    // Call this to show the UI to create a new player and associate it with a charity
+    public void createPlayer(RecordPlayerCB recordPlayerCB = null, CleanupCB cleanupCB = null) {
+        this.recordPlayerCB = recordPlayerCB;
+        this.cleanupCB = cleanupCB;
         if (this.gameID != "") {
-            this.createUserObj.SetActive(true);
+            this.createPlayerObj.SetActive(true);
             return;
         }
 
@@ -125,28 +124,21 @@ public class PlayVested : MonoBehaviour {
         if (this.gameID == "") {
             Debug.Log("Error: game has not been initialized");
             yield break;
-        } else if (this.userID != "") {
-            Debug.Log("Error: user is already valid");
+        } else if (this.playerID != "") {
+            Debug.Log("Error: player is already valid");
             yield break;
         }
 
         // make the call to the web endpoint
         WWWForm form = new WWWForm();
-        // form.AddField("username", "ImaTest");
-        // form.AddField("email", "ima@test.com");
-        // form.AddField("firstName", "Ima");
-        // form.AddField("lastName", "Test");
         form.AddField("charityID", charityID);
         form.AddField("gameID", this.gameID);
 
-        using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/users", form)) {
+        using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/players", form)) {
             yield return www.SendWebRequest();
 
             if (www.isNetworkError || www.isHttpError) {
                 Debug.Log("Error: " + www.error);
-                if (this.failureCB != null) {
-                    this.failureCB();
-                }
             } else {
                 Debug.Log("Form upload complete! Response code: " + www.responseCode);
 
@@ -155,10 +147,10 @@ public class PlayVested : MonoBehaviour {
                 }
 
                 Debug.Log("Body: " + www.downloadHandler.text);
-                this.userID = www.downloadHandler.text;
+                this.playerID = www.downloadHandler.text;
 
-                if (this.recordUserCB != null) {
-                    this.recordUserCB(this.userID);
+                if (this.recordPlayerCB != null) {
+                    this.recordPlayerCB(this.playerID);
                 }
             }
 
@@ -169,7 +161,7 @@ public class PlayVested : MonoBehaviour {
 
     // This is hooked up to charity buttons,
     // no need to call this by hand
-    public void handleClick(string charityID) {
+    public void pickCharity(string charityID) {
         Debug.Log("You clicked " + charityID);
         StartCoroutine(this.sendRequest(charityID));
     }
@@ -177,7 +169,10 @@ public class PlayVested : MonoBehaviour {
     // This is hooked up to the cancel button,
     // no need to call this by hand
     public void handleCancelCreate() {
-        this.createUserObj.SetActive(false);
+        this.createPlayerObj.SetActive(false);
+        if (this.cleanupCB != null) {
+            this.cleanupCB();
+        }
     }
 
     private void updateTotalLabel(Text info, double value) {
@@ -193,7 +188,7 @@ public class PlayVested : MonoBehaviour {
         }
     }
 
-    private IEnumerator queryTotals(QueryTotalParams queryParams, TotalResults resultsCB) {
+    private IEnumerator queryTotals(QueryTotalParams queryParams, TotalResultsCB resultsCB) {
         // Clear the displayed info until we get data back from the server
         this.updateTotalLabel(this.lifetimeInfo, 0);
         this.updateTotalLabel(this.filteredInfo, 0);
@@ -203,8 +198,8 @@ public class PlayVested : MonoBehaviour {
             queryString.Add("gameID=" + queryParams.gameID);
         }
 
-        if (queryParams.userID != null) {
-            queryString.Add("userID=" + queryParams.userID);
+        if (queryParams.playerID != null) {
+            queryString.Add("playerID=" + queryParams.playerID);
         }
 
         if (queryParams.previousDays != 0) {
@@ -231,9 +226,6 @@ public class PlayVested : MonoBehaviour {
 
             if (www.isNetworkError || www.isHttpError) {
                 Debug.Log("Error: " + www.error);
-                if (this.failureCB != null) {
-                    this.failureCB();
-                }
             } else {
                 Debug.Log("Get total complete! Response code: " + www.responseCode);
 
@@ -257,7 +249,9 @@ public class PlayVested : MonoBehaviour {
     }
 
     // Call this to show the UI to view earning details for a game
-    public void showSummary(QueryTotalParams queryParams, TotalResults resultsCB = null) {
+    public void showSummary(QueryTotalParams queryParams, TotalResultsCB resultsCB = null, CleanupCB cleanupCB = null) {
+        this.cleanupCB = cleanupCB;
+
         if (this.gameID != "") {
             StartCoroutine(this.queryTotals(queryParams, resultsCB));
             this.summaryObj.SetActive(true);
@@ -265,11 +259,15 @@ public class PlayVested : MonoBehaviour {
         }
 
         Debug.LogError("Error: call init with game ID first");
+        this.handleCloseSummary();
     }
 
     // Close the summary pop-up
     public void handleCloseSummary() {
         this.summaryObj.SetActive(false);
+        if (this.cleanupCB != null) {
+            this.cleanupCB();
+        }
     }
 
     private IEnumerator linkAccount(string username, string password) {
@@ -278,7 +276,7 @@ public class PlayVested : MonoBehaviour {
         form.AddField("username", username);
         form.AddField("password", password);
 
-        using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/users/link", form)) {
+        using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/players/link", form)) {
             yield return www.SendWebRequest();
 
             if (www.isNetworkError || www.isHttpError) {
@@ -311,11 +309,19 @@ public class PlayVested : MonoBehaviour {
         this.linkAccountObj.SetActive(false);
     }
 
-    private IEnumerator recordEarning(float amountEarned) {
+    public void handleCreateAccount() {
+        Application.OpenURL(baseURL + "/register");
+    }
+
+    public void handleForgotPassword() {
+        Application.OpenURL(baseURL + "/login");
+    }
+
+    private IEnumerator recordEarning(float amountEarned, RecordEarningCB successCB, CleanupCB cleanupCB) {
         // make the call to the web endpoint
         WWWForm form = new WWWForm();
         form.AddField("gameID", this.gameID);
-        form.AddField("userID", this.userID);
+        form.AddField("playerID", this.playerID);
         form.AddField("amountEarned", "" + amountEarned);
 
         using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/records", form)) {
@@ -323,30 +329,33 @@ public class PlayVested : MonoBehaviour {
 
             if (www.isNetworkError || www.isHttpError) {
                 Debug.LogError("Error: " + www.error);
-                if (this.failureCB != null) {
-                    this.failureCB();
-                }
             } else {
                 Debug.Log("Earning report complete! Response code: " + www.responseCode);
 
-                bool retVal = (www.isDone && www.downloadHandler.isDone);
-                if (this.recordEarningCB != null) {
-                    this.recordEarningCB(retVal);
+                while (!(www.isDone && www.downloadHandler.isDone)) {
+                    yield return new WaitForSeconds(0.1f);
                 }
-                yield return retVal;
+
+                if (successCB != null) {
+                    successCB(amountEarned);
+                }
+            }
+
+            if (cleanupCB != null) {
+                cleanupCB();
             }
         }
     }
 
-    public void reportEarning(float amountEarned, RecordEarning recordEarningCB = null, FailureCleanup failureCB = null) {
-        this.recordEarningCB = recordEarningCB;
-        this.failureCB = failureCB;
-
-        if (this.gameID == "" || this.userID == "") {
-            Debug.LogError("Error: game and user have not been initialized");
+    public void reportEarning(float amountEarned, RecordEarningCB successCB = null, CleanupCB cleanupCB = null) {
+        if (this.gameID == "" || this.playerID == "") {
+            Debug.LogError("Error: game and player have not been initialized");
+            if (cleanupCB != null) {
+                cleanupCB();
+            }
             return;
         }
 
-        StartCoroutine(this.recordEarning(amountEarned));
+        StartCoroutine(this.recordEarning(amountEarned, successCB, cleanupCB));
     }
 }
