@@ -8,7 +8,7 @@ using System.IO;
 using System.Net;
 
 public delegate void RecordPlayerCB(string playerID);
-public delegate void RecordEarningCB(float amountRecorded);
+public delegate void RecordEarningCB(double amountRecorded);
 public delegate void TotalResultsCB(QueryTotalResults results);
 public delegate void CleanupCB();
 
@@ -41,6 +41,22 @@ public class QueryTotalResults {
     public static QueryTotalResults CreateFromJSON(string jsonString)
     {
         return JsonUtility.FromJson<QueryTotalResults>(jsonString);
+    }
+}
+
+[System.Serializable]
+public class RecordEarningResults {
+    public double amountEarned;
+    public string status;
+
+    public RecordEarningResults() {
+        amountEarned = 0.0;
+        status = "UNKNOWN";
+    }
+
+    public static RecordEarningResults CreateFromJSON(string jsonString)
+    {
+        return JsonUtility.FromJson<RecordEarningResults>(jsonString);
     }
 }
 
@@ -337,7 +353,10 @@ public class PlayVested : MonoBehaviour {
                 }
 
                 if (successCB != null) {
-                    successCB(amountEarned);
+                    string json = www.downloadHandler.text;
+                    RecordEarningResults results = RecordEarningResults.CreateFromJSON(json);
+
+                    successCB(results.amountEarned);
                 }
             }
 
