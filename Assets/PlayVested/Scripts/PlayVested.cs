@@ -13,13 +13,15 @@ public delegate void TotalResultsCB(QueryTotalResults results);
 public delegate void CleanupCB();
 
 public class QueryTotalParams {
+    public string devID;
     public string gameID;
     public string playerID;
     public int previousDays;
     public int previousWeeks;
     public int previousMonths;
 
-    public QueryTotalParams(string gameID = null, string playerID = null) {
+    public QueryTotalParams(string devID = null, string gameID = null, string playerID = null) {
+        this.devID = devID;
         this.gameID = gameID;
         this.playerID = playerID;
         this.previousDays = 0;
@@ -61,7 +63,8 @@ public class RecordEarningResults {
 }
 
 public class PlayVested : MonoBehaviour {
-    // cached identifiers for the game and player
+    // cached identifiers
+    private string devID = "";
     private string gameID = "";
     private string playerID = "";
 
@@ -111,8 +114,9 @@ public class PlayVested : MonoBehaviour {
     // Call this first
     // Provide the player ID if one exists
     // It will be stored on creation
-    public void init(string gameID, string playerID = "") {
-        Debug.Log("Init called with: " + gameID + " : " + playerID);
+    public void init(string devID, string gameID, string playerID = "") {
+        Debug.Log("Init called with: " + devID + " : " + gameID + " : " + playerID);
+        this.devID = devID;
         this.gameID = gameID;
         this.playerID = playerID;
     }
@@ -212,8 +216,8 @@ public class PlayVested : MonoBehaviour {
         List<string> queryString = new List<string>();
         if (queryParams.gameID != null) {
             queryString.Add("gameID=" + queryParams.gameID);
+            queryString.Add("devID=" + queryParams.devID);
         }
-
         if (queryParams.playerID != null) {
             queryString.Add("playerID=" + queryParams.playerID);
         }
@@ -242,6 +246,7 @@ public class PlayVested : MonoBehaviour {
 
             if (www.isNetworkError || www.isHttpError) {
                 Debug.Log("Error: " + www.error);
+                this.handleCloseSummary();
             } else {
                 Debug.Log("Get total complete! Response code: " + www.responseCode);
 
@@ -268,14 +273,8 @@ public class PlayVested : MonoBehaviour {
     public void showSummary(QueryTotalParams queryParams, TotalResultsCB resultsCB = null, CleanupCB cleanupCB = null) {
         this.cleanupCB = cleanupCB;
 
-        if (this.gameID != "") {
-            StartCoroutine(this.queryTotals(queryParams, resultsCB));
-            this.summaryObj.SetActive(true);
-            return;
-        }
-
-        Debug.LogError("Error: call init with game ID first");
-        this.handleCloseSummary();
+        StartCoroutine(this.queryTotals(queryParams, resultsCB));
+        this.summaryObj.SetActive(true);
     }
 
     // Close the summary pop-up
@@ -336,6 +335,7 @@ public class PlayVested : MonoBehaviour {
     private IEnumerator recordEarning(float amountEarned, RecordEarningCB successCB, CleanupCB cleanupCB) {
         // make the call to the web endpoint
         WWWForm form = new WWWForm();
+        form.AddField("devID", this.devID);
         form.AddField("gameID", this.gameID);
         form.AddField("playerID", this.playerID);
         form.AddField("amountEarned", "" + amountEarned);
@@ -367,14 +367,6 @@ public class PlayVested : MonoBehaviour {
     }
 
     public void reportEarning(float amountEarned, RecordEarningCB successCB = null, CleanupCB cleanupCB = null) {
-        if (this.gameID == "" || this.playerID == "") {
-            Debug.LogError("Error: game and player have not been initialized");
-            if (cleanupCB != null) {
-                cleanupCB();
-            }
-            return;
-        }
-
         StartCoroutine(this.recordEarning(amountEarned, successCB, cleanupCB));
     }
 }
