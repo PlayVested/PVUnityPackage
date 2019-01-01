@@ -84,6 +84,7 @@ public class PlayVested : MonoBehaviour {
     // Totals displayed on the summary screen
     public Text lifetimeInfo;
     public Text filteredInfo;
+    public Text linkErrorText;
 
     /*
     private string baseURL = "localhost:1979";
@@ -290,18 +291,18 @@ public class PlayVested : MonoBehaviour {
         WWWForm form = new WWWForm();
         form.AddField("username", username);
         form.AddField("password", password);
+        form.AddField("playerID", this.playerID);
 
         using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/players/link", form)) {
             yield return www.SendWebRequest();
 
             if (www.isNetworkError || www.isHttpError) {
                 Debug.Log("Error: " + www.error);
+                this.linkErrorText.text = www.downloadHandler.text;
             } else {
                 Debug.Log("Link complete! Response code: " + www.responseCode + " body: " + www.downloadHandler.text);
+                this.handleCloseLink();
             }
-
-            // regardless of any errors, we want to close the pop up at this point
-            this.handleCloseLink();
         }
     }
 
@@ -314,6 +315,9 @@ public class PlayVested : MonoBehaviour {
     public void showLinkAccount() {
         // Make sure the summary object is hidden before showing the link page
         this.handleCloseSummary();
+        if (this.linkErrorText) {
+            this.linkErrorText.text = "";
+        }
         this.linkAccountObj.SetActive(true);
     }
 
