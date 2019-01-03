@@ -286,22 +286,28 @@ public class PlayVested : MonoBehaviour {
         }
     }
 
+    private IEnumerator linkAccountSuccess() {
+        yield return new WaitForSeconds(2.0f);
+        this.handleCloseLink();
+    }
+
     private IEnumerator linkAccount(string username, string password) {
         // make the call to the web endpoint
         WWWForm form = new WWWForm();
         form.AddField("username", username);
         form.AddField("password", password);
-        form.AddField("playerID", this.playerID);
 
-        using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/players/link", form)) {
+        using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/players/" + this.playerID + "/link", form)) {
             yield return www.SendWebRequest();
 
+            this.linkErrorText.text = www.downloadHandler.text;
             if (www.isNetworkError || www.isHttpError) {
                 Debug.Log("Error: " + www.error);
-                this.linkErrorText.text = www.downloadHandler.text;
+                this.linkErrorText.color = Color.red;
             } else {
                 Debug.Log("Link complete! Response code: " + www.responseCode + " body: " + www.downloadHandler.text);
-                this.handleCloseLink();
+                this.linkErrorText.color = Color.green;
+                StartCoroutine(this.linkAccountSuccess());
             }
         }
     }
