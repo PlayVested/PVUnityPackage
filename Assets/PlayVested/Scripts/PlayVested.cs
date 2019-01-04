@@ -325,6 +325,7 @@ public class PlayVested : MonoBehaviour {
             this.linkErrorText.text = "";
         }
         this.linkAccountObj.SetActive(true);
+        this.usernameInput.ActivateInputField();
     }
 
     // Close the link accounts pop-up
