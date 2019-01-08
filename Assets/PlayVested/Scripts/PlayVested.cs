@@ -68,6 +68,9 @@ public class PlayVested : MonoBehaviour {
     private string gameID = "";
     private string playerID = "";
 
+    // caches if player has a linked PV user account
+    private bool playerIsLinked = false;
+
     // callbacks to notify the game when async operations are done
     private RecordPlayerCB recordPlayerCB = null;
     private CleanupCB cleanupCB = null;
@@ -112,14 +115,37 @@ public class PlayVested : MonoBehaviour {
         }
     }
 
+    private IEnumerator getLinkedUser(string playerID) {
+        // make the call to the web endpoint
+        this.playerIsLinked = false;
+        if (playerID != "") {
+            using (UnityWebRequest www = UnityWebRequest.Get(baseURL + "/players/" + playerID + "/is-linked")) {
+                yield return www.SendWebRequest();
+
+                if (www.isNetworkError || www.isHttpError) {
+                    Debug.Log("Error: " + www.error);
+                } else {
+                    Debug.Log("Get complete! Response code: " + www.responseCode);
+
+                    while (!(www.isDone && www.downloadHandler.isDone)) {
+                        yield return new WaitForSeconds(0.1f);
+                    }
+
+                    this.playerIsLinked = (www.downloadHandler.text == "true");
+                }
+            }
+        }
+    }
+
     // Call this first
     // Provide the player ID if one exists
     // It will be stored on creation
     public void init(string devID, string gameID, string playerID = "") {
-        Debug.Log("Init called with: " + devID + " : " + gameID + " : " + playerID);
         this.devID = devID;
         this.gameID = gameID;
         this.playerID = playerID;
+
+        StartCoroutine(this.getLinkedUser(playerID));
     }
 
     // Call this when ending the play session to clean up data the containing object
@@ -140,7 +166,7 @@ public class PlayVested : MonoBehaviour {
         Debug.LogError("Error: call init with game ID first");
     }
 
-    private IEnumerator sendRequest(string charityID) {
+    private IEnumerator sendCharityRequest(string charityID) {
         // make sure the game has initialized properly
         if (this.gameID == "") {
             Debug.Log("Error: game has not been initialized");
@@ -184,7 +210,7 @@ public class PlayVested : MonoBehaviour {
     // no need to call this by hand
     public void pickCharity(string charityID) {
         Debug.Log("You clicked " + charityID);
-        StartCoroutine(this.sendRequest(charityID));
+        StartCoroutine(this.sendCharityRequest(charityID));
     }
 
     // This is hooked up to the cancel button,
@@ -287,6 +313,8 @@ public class PlayVested : MonoBehaviour {
     }
 
     private IEnumerator linkAccountSuccess() {
+        this.playerIsLinked = true;
+
         yield return new WaitForSeconds(2.0f);
         this.handleCloseLink();
     }
@@ -318,14 +346,19 @@ public class PlayVested : MonoBehaviour {
     }
 
     // Call this to show the UI to link with a PlayVested account
-    public void showLinkAccount() {
-        // Make sure the summary object is hidden before showing the link page
-        this.handleCloseSummary();
-        if (this.linkErrorText) {
-            this.linkErrorText.text = "";
+    public void handlePVLogo() {
+        if (this.playerIsLinked) {
+            // player is already linked, take them to the PV web page
+            Application.OpenURL(baseURL + "/login");
+        } else {
+            // Make sure the summary object is hidden before showing the link page
+            this.handleCloseSummary();
+            if (this.linkErrorText) {
+                this.linkErrorText.text = "";
+            }
+            this.linkAccountObj.SetActive(true);
+            this.usernameInput.ActivateInputField();
         }
-        this.linkAccountObj.SetActive(true);
-        this.usernameInput.ActivateInputField();
     }
 
     // Close the link accounts pop-up
