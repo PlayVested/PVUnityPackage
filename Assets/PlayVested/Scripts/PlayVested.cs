@@ -143,9 +143,15 @@ public class PlayVested : MonoBehaviour {
     // Provide the player ID if one exists
     // It will be stored on creation
     public void init(string devID, string gameID, string playerID = INVALID_ID) {
-        this.devID = devID;
-        this.gameID = gameID;
-        this.playerID = playerID;
+        if (this.isValid(devID)) {
+            this.devID = devID;
+        }
+        if (this.isValid(gameID)) {
+            this.gameID = gameID;
+        }
+        if (this.isValid(playerID)) {
+            this.playerID = playerID;
+        }
 
         StartCoroutine(this.getLinkedUser(playerID));
     }
