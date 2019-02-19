@@ -63,10 +63,12 @@ public class RecordEarningResults {
 }
 
 public class PlayVested : MonoBehaviour {
+    private const string INVALID_ID = "000000000000000000000000";
+
     // cached identifiers
-    private string devID = "";
-    private string gameID = "";
-    private string playerID = "";
+    private string devID = INVALID_ID;
+    private string gameID = INVALID_ID;
+    private string playerID = INVALID_ID;
 
     // caches if player has a linked PV user account
     private bool playerIsLinked = false;
@@ -118,7 +120,7 @@ public class PlayVested : MonoBehaviour {
     private IEnumerator getLinkedUser(string playerID) {
         // make the call to the web endpoint
         this.playerIsLinked = false;
-        if (playerID != "") {
+        if (this.isValid(playerID)) {
             using (UnityWebRequest www = UnityWebRequest.Get(baseURL + "/players/" + playerID + "/is-linked")) {
                 yield return www.SendWebRequest();
 
@@ -140,7 +142,7 @@ public class PlayVested : MonoBehaviour {
     // Call this first
     // Provide the player ID if one exists
     // It will be stored on creation
-    public void init(string devID, string gameID, string playerID = "") {
+    public void init(string devID, string gameID, string playerID = INVALID_ID) {
         this.devID = devID;
         this.gameID = gameID;
         this.playerID = playerID;
@@ -158,7 +160,7 @@ public class PlayVested : MonoBehaviour {
     public void createPlayer(RecordPlayerCB recordPlayerCB = null, CleanupCB cleanupCB = null) {
         this.recordPlayerCB = recordPlayerCB;
         this.cleanupCB = cleanupCB;
-        if (this.gameID != "") {
+        if (this.isValid(this.gameID)) {
             this.createPlayerObj.SetActive(true);
             return;
         }
@@ -168,10 +170,10 @@ public class PlayVested : MonoBehaviour {
 
     private IEnumerator sendCharityRequest(string charityID) {
         // make sure the game has initialized properly
-        if (this.gameID == "") {
+        if (!this.isValid(this.gameID)) {
             Debug.Log("Error: game has not been initialized");
             yield break;
-        } else if (this.playerID != "") {
+        } else if (this.isValid(this.playerID)) {
             Debug.Log("Error: player is already valid");
             yield break;
         }
@@ -195,10 +197,6 @@ public class PlayVested : MonoBehaviour {
 
                 Debug.Log("Body: " + www.downloadHandler.text);
                 this.playerID = www.downloadHandler.text;
-
-                if (this.recordPlayerCB != null) {
-                    this.recordPlayerCB(this.playerID);
-                }
             }
 
             // regardless of any errors, we want to close the pop up at this point
@@ -216,6 +214,12 @@ public class PlayVested : MonoBehaviour {
     // This is hooked up to the cancel button,
     // no need to call this by hand
     public void handleCancelCreate() {
+        // we always want to store the playerID at this point
+        // since even cancelling out is meaningful to the game
+        if (this.recordPlayerCB != null) {
+            this.recordPlayerCB(this.playerID);
+        }
+
         this.createPlayerObj.SetActive(false);
         if (this.cleanupCB != null) {
             this.cleanupCB();
@@ -411,6 +415,14 @@ public class PlayVested : MonoBehaviour {
     }
 
     public void reportEarning(float amountEarned, RecordEarningCB successCB = null, CleanupCB cleanupCB = null) {
-        StartCoroutine(this.recordEarning(amountEarned, successCB, cleanupCB));
+        if (this.isValid(this.playerID)) {
+            StartCoroutine(this.recordEarning(amountEarned, successCB, cleanupCB));
+        } else if (cleanupCB != null) {
+            cleanupCB();
+        }
+    }
+
+    public bool isValid(string ID) {
+        return (ID != null && ID != "" && ID != INVALID_ID);
     }
 }
