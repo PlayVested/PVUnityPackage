@@ -91,14 +91,17 @@ public class PlayVested : MonoBehaviour {
     public Text filteredInfo;
     public Text linkErrorText;
 
-    /*
-    private string baseURL = "localhost:1979";
-    /*/
-    private string baseURL = "https://playvested.herokuapp.com";
-    //*/
+    private string baseURL = "";
 
     // Use this for initialization
     void Start () {
+        // determine what the base web route is
+        if (Application.isEditor) {
+            baseURL = "localhost:1979";
+        } else {
+            baseURL = "https://playvested.herokuapp.com";
+        }
+
         // Make sure all the pop-ups are hidden when this is instantiated
         if (this.createPlayerObj) {
             this.createPlayerObj.SetActive(false);
