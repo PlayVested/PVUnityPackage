@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 
-public delegate void RecordPlayerCB(string playerID);
+public delegate void RecordPlayerCB(string playerID, string charityName);
 public delegate void RecordEarningCB(double amountRecorded);
 public delegate void TotalResultsCB(QueryTotalResults results);
 public delegate void CleanupCB();
@@ -69,6 +69,7 @@ public class PlayVested : MonoBehaviour {
     private string devID = INVALID_ID;
     private string gameID = INVALID_ID;
     private string playerID = INVALID_ID;
+    private string charityName = "";
 
     // caches if player has a linked PV user account
     private bool playerIsLinked = false;
@@ -170,6 +171,7 @@ public class PlayVested : MonoBehaviour {
         this.recordPlayerCB = recordPlayerCB;
         this.cleanupCB = cleanupCB;
         if (this.isValid(this.gameID)) {
+            this.playerID = INVALID_ID;
             this.createPlayerObj.SetActive(true);
             return;
         }
@@ -177,7 +179,7 @@ public class PlayVested : MonoBehaviour {
         Debug.LogError("Error: call init with game ID first");
     }
 
-    private IEnumerator sendCharityRequest(string charityID) {
+    private IEnumerator sendCreatePlayer(string charityName) {
         // make sure the game has initialized properly
         if (!this.isValid(this.gameID)) {
             Debug.Log("Error: game has not been initialized");
@@ -189,7 +191,7 @@ public class PlayVested : MonoBehaviour {
 
         // make the call to the web endpoint
         WWWForm form = new WWWForm();
-        form.AddField("charityID", charityID);
+        form.AddField("charityName", charityName);
         form.AddField("gameID", this.gameID);
 
         using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/players", form)) {
@@ -197,6 +199,8 @@ public class PlayVested : MonoBehaviour {
 
             if (www.isNetworkError || www.isHttpError) {
                 Debug.Log("Error: " + www.error);
+                charityName = "";
+                this.playerID = "";
             } else {
                 Debug.Log("Form upload complete! Response code: " + www.responseCode);
 
@@ -209,24 +213,24 @@ public class PlayVested : MonoBehaviour {
             }
 
             // regardless of any errors, we want to close the pop up at this point
-            this.handleCancelCreate();
+            this.handleCancelCreate(charityName);
         }
     }
 
     // This is hooked up to charity buttons,
     // no need to call this by hand
-    public void pickCharity(string charityID) {
-        Debug.Log("You clicked " + charityID);
-        StartCoroutine(this.sendCharityRequest(charityID));
+    public void pickCharity(string charityName) {
+        Debug.Log("You clicked " + charityName);
+        StartCoroutine(this.sendCreatePlayer(charityName));
     }
 
     // This is hooked up to the cancel button,
     // no need to call this by hand
-    public void handleCancelCreate() {
+    public void handleCancelCreate(string charityName = "") {
         // we always want to store the playerID at this point
         // since even cancelling out is meaningful to the game
         if (this.recordPlayerCB != null) {
-            this.recordPlayerCB(this.playerID);
+            this.recordPlayerCB(this.playerID, charityName);
         }
 
         this.createPlayerObj.SetActive(false);
