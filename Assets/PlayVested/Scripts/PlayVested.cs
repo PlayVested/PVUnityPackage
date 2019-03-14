@@ -241,7 +241,7 @@ public class PlayVested : MonoBehaviour {
 
     private void updateTotalLabel(Text info, double value) {
         if (info != null && info.transform.parent.gameObject) {
-            if (value > 0.0) {
+            if (value >= 0.0) {
                 info.transform.parent.gameObject.SetActive(true);
                 info.text = String.Format("{0:C2}", value);
             } else {
@@ -254,8 +254,8 @@ public class PlayVested : MonoBehaviour {
 
     private IEnumerator queryTotals(QueryTotalParams queryParams, TotalResultsCB resultsCB) {
         // Clear the displayed info until we get data back from the server
-        this.updateTotalLabel(this.lifetimeInfo, 0);
-        this.updateTotalLabel(this.filteredInfo, 0);
+        this.updateTotalLabel(this.lifetimeInfo, -1);
+        this.updateTotalLabel(this.filteredInfo, -1);
 
         List<string> queryString = new List<string>();
         if (queryParams.gameID != null) {
