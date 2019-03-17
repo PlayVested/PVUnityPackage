@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 
-public delegate void RecordPlayerCB(string playerID, string charityName);
+public delegate void RecordPlayerCB(string playerID, string charityName, string msgText);
 public delegate void RecordEarningCB(double amountRecorded);
 public delegate void TotalResultsCB(QueryTotalResults results);
 public delegate void CleanupCB();
@@ -197,10 +197,11 @@ public class PlayVested : MonoBehaviour {
         using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/players", form)) {
             yield return www.SendWebRequest();
 
+            string msgText = "";
             if (www.isNetworkError || www.isHttpError) {
                 Debug.Log("Error: " + www.error);
                 charityName = "";
-                this.playerID = "";
+                this.playerID = INVALID_ID;
             } else {
                 Debug.Log("Form upload complete! Response code: " + www.responseCode);
 
@@ -210,10 +211,11 @@ public class PlayVested : MonoBehaviour {
 
                 Debug.Log("Body: " + www.downloadHandler.text);
                 this.playerID = www.downloadHandler.text;
+                msgText = "Thank you for supporting " + charityName;
             }
 
             // regardless of any errors, we want to close the pop up at this point
-            this.handleCancelCreate(charityName);
+            this.handleCancelCreate(charityName, msgText);
         }
     }
 
@@ -226,11 +228,11 @@ public class PlayVested : MonoBehaviour {
 
     // This is hooked up to the cancel button,
     // no need to call this by hand
-    public void handleCancelCreate(string charityName = "") {
+    public void handleCancelCreate(string charityName = "", string msgText = "") {
         // we always want to store the playerID at this point
         // since even cancelling out is meaningful to the game
         if (this.recordPlayerCB != null) {
-            this.recordPlayerCB(this.playerID, charityName);
+            this.recordPlayerCB(this.playerID, charityName, msgText);
         }
 
         this.createPlayerObj.SetActive(false);
@@ -342,7 +344,16 @@ public class PlayVested : MonoBehaviour {
         form.AddField("username", username);
         form.AddField("password", password);
 
-        using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/players/" + this.playerID + "/link", form)) {
+        string linkInfo = null;
+        if (this.isValid(this.playerID)) {
+            linkInfo = this.playerID;
+        } else if (this.isValid(this.gameID)) {
+            linkInfo = "game/" + this.gameID;
+        } else {
+            yield break;
+        }
+
+        using (UnityWebRequest www = UnityWebRequest.Post(baseURL + "/players/link/" + linkInfo, form)) {
             yield return www.SendWebRequest();
 
             this.linkErrorText.text = www.downloadHandler.text;
@@ -351,6 +362,13 @@ public class PlayVested : MonoBehaviour {
                 this.linkErrorText.color = Color.red;
             } else {
                 Debug.Log("Link complete! Response code: " + www.responseCode + " body: " + www.downloadHandler.text);
+                if (!this.isValid(this.playerID)) {
+                    this.playerID = www.downloadHandler.text;
+                    this.linkErrorText.text = "Success!";
+                    string msgText = "Account successfully linked!";
+                    this.handleCancelCreate("", msgText);
+                }
+
                 this.linkErrorText.color = Color.green;
                 StartCoroutine(this.linkAccountSuccess());
             }
@@ -369,7 +387,9 @@ public class PlayVested : MonoBehaviour {
             Application.OpenURL(baseURL + "/login");
         } else {
             // Make sure the summary object is hidden before showing the link page
-            this.handleCloseSummary();
+            if (this.summaryObj.activeSelf) {
+                this.handleCloseSummary();
+            }
             if (this.linkErrorText) {
                 this.linkErrorText.text = "";
             }
